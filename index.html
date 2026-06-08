@@ -1,0 +1,433 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>¿Convierto ahora o espero? · Calculadora de cambio USD → moneda local</title>
+<meta name="description" content="Si ganas en dólares y conviertes a tu moneda local: juega con la tasa de cambio para ver cuánto recibirías y si vale la pena pagar una comisión por fijar la tasa de hoy. Ejercicio de planeación financiera, no es recomendación.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,600;1,9..144,500&family=Hanken+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#0d1013; --ink2:#14181c; --panel:#181d22; --panel2:#1d242a;
+    --line:#2b333a; --line2:#3a444c;
+    --text:#eef1ee; --muted:#909a9f; --faint:#6c757b;
+    --green:#5fd08a; --green-d:#36a868; --green-bg:rgba(95,208,138,.10);
+    --amber:#e6a85c; --amber-d:#cf8a37; --amber-bg:rgba(230,168,92,.10);
+    --red:#e88575;
+    --shadow:0 22px 60px -28px rgba(0,0,0,.85);
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html{-webkit-text-size-adjust:100%}
+  body{
+    font-family:'Hanken Grotesk',sans-serif;
+    background:
+      radial-gradient(1200px 600px at 85% -10%, rgba(95,208,138,.07), transparent 60%),
+      radial-gradient(900px 500px at 0% 110%, rgba(230,168,92,.06), transparent 55%),
+      linear-gradient(180deg,var(--ink),var(--ink2));
+    color:var(--text); min-height:100vh; line-height:1.5;
+    padding:clamp(16px,4vw,48px);
+    -webkit-font-smoothing:antialiased;
+  }
+  .wrap{max-width:1080px;margin:0 auto}
+  .num{font-family:'JetBrains Mono',monospace;font-variant-numeric:tabular-nums;letter-spacing:-.01em}
+
+  /* header */
+  header{margin-bottom:30px;animation:rise .7s cubic-bezier(.2,.7,.2,1) both}
+  .kicker{font-size:12px;letter-spacing:.22em;text-transform:uppercase;color:var(--amber);font-weight:600;margin-bottom:10px}
+  h1{font-family:'Fraunces',serif;font-weight:400;font-size:clamp(30px,5.5vw,52px);line-height:1.02;letter-spacing:-.015em}
+  h1 em{font-style:italic;color:var(--green)}
+  .sub{color:var(--muted);margin-top:12px;max-width:62ch;font-size:15px}
+
+  /* recommendation / summary banner */
+  .verdict{
+    margin:26px 0 30px;border:1px solid var(--line);border-radius:18px;overflow:hidden;
+    background:linear-gradient(180deg,var(--panel),var(--ink2));box-shadow:var(--shadow);
+    animation:rise .7s .05s cubic-bezier(.2,.7,.2,1) both;
+  }
+  .verdict-top{display:flex;align-items:center;gap:16px;padding:20px 24px;border-bottom:1px solid var(--line)}
+  .dot{width:11px;height:11px;border-radius:50%;flex:none;box-shadow:0 0 0 5px rgba(255,255,255,.04)}
+  #verdictLabel{font-family:'Fraunces',serif;font-size:clamp(22px,3.5vw,30px);font-weight:500}
+  .verdict-body{padding:18px 24px 22px;color:var(--muted);font-size:14.5px}
+  #verdictWhy{color:var(--text)}
+
+  .grid{display:grid;grid-template-columns:340px 1fr;gap:22px;align-items:start}
+  @media(max-width:860px){.grid{grid-template-columns:1fr}}
+
+  .card{background:linear-gradient(180deg,var(--panel),var(--ink2));border:1px solid var(--line);border-radius:18px;box-shadow:var(--shadow)}
+  .card.inputs{padding:22px;animation:rise .7s .1s cubic-bezier(.2,.7,.2,1) both}
+  .card-title{font-family:'Fraunces',serif;font-size:19px;font-weight:500;margin-bottom:4px}
+  .card-note{color:var(--faint);font-size:12.5px;margin-bottom:18px}
+
+  .field{margin-bottom:16px}
+  .field label{display:flex;justify-content:space-between;align-items:baseline;font-size:13px;color:var(--muted);margin-bottom:7px}
+  .field label .hint{color:var(--faint);font-size:11px}
+  .inputbox{display:flex;align-items:center;background:var(--ink);border:1px solid var(--line2);border-radius:11px;padding:0 12px;transition:border-color .2s,box-shadow .2s}
+  .inputbox:focus-within{border-color:var(--green-d);box-shadow:0 0 0 3px var(--green-bg)}
+  .inputbox .pre{color:var(--faint);font-size:13px;margin-right:6px}
+  .inputbox input{flex:1;background:none;border:none;color:var(--text);font-family:'JetBrains Mono',monospace;font-size:16px;padding:12px 0;width:100%;outline:none}
+  .inputbox input.code{text-transform:uppercase}
+  .inputbox .post{color:var(--faint);font-size:12px;margin-left:6px}
+
+  /* toggle */
+  .toggle-row{display:flex;align-items:center;gap:12px;margin:22px 0 4px;padding-top:18px;border-top:1px solid var(--line)}
+  .toggle-row .tlabel{font-size:13px;color:var(--text);font-weight:600;flex:1}
+  .switch{position:relative;width:42px;height:24px;flex:none}
+  .switch input{opacity:0;width:0;height:0}
+  .slidebtn{position:absolute;inset:0;background:var(--line2);border-radius:24px;cursor:pointer;transition:background .2s}
+  .slidebtn::before{content:"";position:absolute;height:18px;width:18px;left:3px;top:3px;background:var(--text);border-radius:50%;transition:transform .2s}
+  .switch input:checked + .slidebtn{background:var(--green-d)}
+  .switch input:checked + .slidebtn::before{transform:translateX(18px)}
+  .toggle-note{color:var(--faint);font-size:11.5px;margin:6px 0 16px}
+  .compare-fields{display:none}
+  body.mode-compare .compare-fields{display:block}
+
+  /* slider */
+  .sliderwrap{margin-top:6px}
+  .slider-top{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px}
+  .slider-val{font-family:'JetBrains Mono',monospace;font-size:22px;color:var(--text)}
+  .slider-move{font-family:'JetBrains Mono',monospace;font-size:13px}
+  input[type=range]{-webkit-appearance:none;appearance:none;width:100%;height:6px;border-radius:6px;background:linear-gradient(90deg,var(--amber-d),var(--line),var(--green-d));outline:none}
+  input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:22px;height:22px;border-radius:50%;background:var(--text);border:4px solid var(--ink2);cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.5);transition:transform .12s}
+  input[type=range]::-webkit-slider-thumb:hover{transform:scale(1.12)}
+  input[type=range]::-moz-range-thumb{width:22px;height:22px;border-radius:50%;background:var(--text);border:4px solid var(--ink2);cursor:pointer}
+  .scale{display:flex;justify-content:space-between;color:var(--faint);font-size:10.5px;margin-top:6px;font-family:'JetBrains Mono',monospace}
+
+  /* results column */
+  .results{display:flex;flex-direction:column;gap:22px}
+
+  /* simple-mode single result */
+  .single{padding:22px 24px;border-radius:16px;border:1px solid var(--line);background:linear-gradient(180deg,rgba(95,208,138,.07),transparent);animation:rise .7s .15s cubic-bezier(.2,.7,.2,1) both}
+  .single h3{font-size:13px;text-transform:uppercase;letter-spacing:.12em;font-weight:600;color:var(--green);margin-bottom:6px}
+  .single .big{font-family:'JetBrains Mono',monospace;font-size:clamp(28px,5vw,40px);font-weight:700;letter-spacing:-.02em}
+  .single .big small{font-size:15px;color:var(--muted);font-weight:400}
+  .single .row{display:flex;justify-content:space-between;font-size:12.5px;color:var(--muted);margin-top:9px;font-family:'JetBrains Mono',monospace}
+  body.mode-compare .single{display:none}
+
+  .compare{display:grid;grid-template-columns:1fr 1fr;gap:16px;display:none}
+  body.mode-compare .compare{display:grid}
+  @media(max-width:520px){body.mode-compare .compare{grid-template-columns:1fr}}
+  .opt{padding:20px;border-radius:16px;border:1px solid var(--line);position:relative;overflow:hidden;animation:rise .7s .15s cubic-bezier(.2,.7,.2,1) both}
+  .opt h3{font-size:13px;text-transform:uppercase;letter-spacing:.12em;font-weight:600;margin-bottom:4px}
+  .opt .tag{font-size:11.5px;color:var(--faint);margin-bottom:14px}
+  .opt .big{font-family:'JetBrains Mono',monospace;font-size:clamp(22px,3.4vw,30px);font-weight:700;letter-spacing:-.02em}
+  .opt .big small{font-size:13px;color:var(--muted);font-weight:400}
+  .opt .row{display:flex;justify-content:space-between;font-size:12.5px;color:var(--muted);margin-top:7px;font-family:'JetBrains Mono',monospace}
+  .opt.hoy{background:linear-gradient(180deg,rgba(230,168,92,.07),transparent)}
+  .opt.hoy h3{color:var(--amber)}
+  .opt.esperar{background:linear-gradient(180deg,rgba(95,208,138,.07),transparent)}
+  .opt.esperar h3{color:var(--green)}
+  .opt.win{border-color:currentColor}
+  .opt.hoy.win{box-shadow:inset 0 0 0 1px var(--amber),0 0 0 1px var(--amber)}
+  .opt.esperar.win{box-shadow:inset 0 0 0 1px var(--green),0 0 0 1px var(--green)}
+  .winflag{position:absolute;top:14px;right:14px;font-size:10px;letter-spacing:.1em;text-transform:uppercase;font-weight:700;padding:3px 8px;border-radius:20px;opacity:0;transition:opacity .25s}
+  .opt.win .winflag{opacity:1}
+  .opt.hoy .winflag{background:var(--amber);color:#241803}
+  .opt.esperar .winflag{background:var(--green);color:#04210f}
+
+  /* breakeven stat */
+  .stat{padding:20px 22px;border-radius:16px;border:1px dashed var(--line2);background:var(--panel2);display:none;gap:20px;flex-wrap:wrap;align-items:center;justify-content:space-between;animation:rise .7s .2s cubic-bezier(.2,.7,.2,1) both}
+  body.mode-compare .stat{display:flex}
+  .stat .l{font-size:13px;color:var(--muted);max-width:42ch}
+  .stat .l b{color:var(--text)}
+  .stat .v{text-align:right}
+  .stat .v .be{font-family:'Fraunces',serif;font-size:34px;color:var(--green);line-height:1}
+  .stat .v .bm{font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--faint);margin-top:4px}
+
+  /* scenario table */
+  .scen{padding:22px;animation:rise .7s .25s cubic-bezier(.2,.7,.2,1) both}
+  table{width:100%;border-collapse:collapse;font-size:13.5px}
+  th{text-align:right;color:var(--faint);font-weight:600;font-size:11px;text-transform:uppercase;letter-spacing:.07em;padding:0 10px 12px;border-bottom:1px solid var(--line)}
+  th:first-child{text-align:left}
+  td{padding:13px 10px;border-bottom:1px solid rgba(43,51,58,.5);font-family:'JetBrains Mono',monospace;text-align:right}
+  td:first-child{text-align:left;font-family:'Hanken Grotesk',sans-serif}
+  tr:last-child td{border-bottom:none}
+  .compare-col{display:none}
+  body.mode-compare .compare-col{display:table-cell}
+  .pill{display:inline-block;font-size:11px;font-weight:700;padding:3px 9px;border-radius:20px;letter-spacing:.04em;font-family:'Hanken Grotesk',sans-serif}
+  .pill.h{background:var(--amber-bg);color:var(--amber)}
+  .pill.e{background:var(--green-bg);color:var(--green)}
+  .pill.t{background:rgba(255,255,255,.06);color:var(--muted)}
+  .delta.pos{color:var(--green)} .delta.neg{color:var(--red)}
+  .scen-cap{color:var(--faint);font-size:12px;margin-top:14px;line-height:1.6}
+
+  footer{margin-top:28px;color:var(--faint);font-size:11.5px;line-height:1.7;border-top:1px solid var(--line);padding-top:18px}
+  footer b{color:var(--muted)}
+  footer .credit{color:var(--muted);margin-bottom:10px}
+  footer a{color:var(--green);text-decoration:none}
+  footer a:hover{text-decoration:underline}
+
+  @keyframes rise{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="kicker">Cambio de divisas · USD → moneda local</div>
+    <h1>¿Convierto <em>ahora</em><br>o espero a una mejor tasa?</h1>
+    <p class="sub">Si ganas en dólares y los conviertes a tu moneda local, la tasa de cambio define cuánto recibes. Pon tu monto y tu moneda, mueve la tasa esperada y mira el resultado. Si tu plataforma o banco te deja <strong>fijar la tasa de hoy pagando una comisión</strong>, activa la comparación para ver cuándo conviene.</p>
+  </header>
+
+  <div class="verdict" id="verdict">
+    <div class="verdict-top">
+      <span class="dot" id="verdictDot"></span>
+      <span id="verdictLabel">—</span>
+    </div>
+    <div class="verdict-body"><span id="verdictWhy"></span></div>
+  </div>
+
+  <div class="grid">
+    <!-- INPUTS -->
+    <div class="card inputs">
+      <div class="card-title">Tus números</div>
+      <div class="card-note">Todo es editable. Nada se guarda ni se envía a ningún lado.</div>
+
+      <div class="field">
+        <label>Moneda local <span class="hint">código, ej. COP / MXN / ARS</span></label>
+        <div class="inputbox"><input id="curr" class="code" type="text" maxlength="6" value="COP" autocomplete="off"></div>
+      </div>
+      <div class="field">
+        <label>Monto a convertir <span class="hint">USD</span></label>
+        <div class="inputbox"><span class="pre">$</span><input id="monto" type="number" step="0.01" min="0" value="2000"></div>
+      </div>
+      <div class="field">
+        <label>Tasa de cambio hoy <span class="hint"><span class="currLbl">COP</span> por USD</span></label>
+        <div class="inputbox"><input id="trmHoy" type="number" step="0.01" min="0" value="4000"><span class="post currLbl">COP</span></div>
+      </div>
+
+      <div class="field sliderwrap">
+        <div class="slider-top">
+          <label style="margin:0">Tasa futura esperada</label>
+          <span class="slider-move num" id="moveLbl"></span>
+        </div>
+        <div class="slider-val num" id="trmFutVal">4,000</div>
+        <input id="trmFut" type="range" min="-15" max="15" step="0.1" value="0">
+        <div class="scale"><span>−15%</span><span>moneda fuerte ← → moneda débil</span><span>+15%</span></div>
+      </div>
+
+      <!-- COMPARISON TOGGLE -->
+      <div class="toggle-row">
+        <span class="tlabel">Comparar con fijar la tasa de hoy (pagando comisión)</span>
+        <label class="switch"><input id="modeToggle" type="checkbox"><span class="slidebtn"></span></label>
+      </div>
+      <div class="toggle-note">Actívalo si tu plataforma te ofrece un adelanto o conversión que fija la tasa de hoy a cambio de una comisión.</div>
+
+      <div class="compare-fields">
+        <div class="field">
+          <label>Comisión por fijar la tasa <span class="hint">USD</span></label>
+          <div class="inputbox"><span class="pre">$</span><input id="service" type="number" step="0.01" min="0" value="50"></div>
+        </div>
+        <div class="field">
+          <label>Fee de transferencia <span class="hint">USD</span></label>
+          <div class="inputbox"><span class="pre">$</span><input id="transfer" type="number" step="0.01" min="0" value="20"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- RESULTS -->
+    <div class="results">
+      <!-- simple mode: single result -->
+      <div class="single" id="single">
+        <h3>A la tasa esperada recibirías</h3>
+        <div class="big" id="copSimple">—</div>
+        <div class="row"><span>Conviertes</span><span id="usableSimple">—</span></div>
+        <div class="row"><span>A una tasa de</span><span id="atrmSimple">—</span></div>
+      </div>
+
+      <!-- compare mode: two options -->
+      <div class="compare">
+        <div class="opt hoy" id="optHoy">
+          <span class="winflag">Gana</span>
+          <h3>Fijar hoy</h3>
+          <div class="tag">Fijas la tasa de hoy · pagas comisión</div>
+          <div class="big" id="copHoy">—</div>
+          <div class="row"><span>Conviertes</span><span id="usableHoy">—</span></div>
+          <div class="row"><span>A una tasa de</span><span id="atrmHoy">—</span></div>
+        </div>
+        <div class="opt esperar" id="optEsp">
+          <span class="winflag">Gana</span>
+          <h3>Esperar</h3>
+          <div class="tag">Conviertes después · sin comisión</div>
+          <div class="big" id="copEsp">—</div>
+          <div class="row"><span>Conviertes</span><span id="usableEsp">—</span></div>
+          <div class="row"><span>A una tasa de</span><span id="atrmEsp">—</span></div>
+        </div>
+      </div>
+
+      <div class="stat">
+        <div class="l">Fijar hoy solo gana si la tasa futura cae <b>por debajo de</b> esta tasa de equilibrio. Por encima, esperar rinde más.</div>
+        <div class="v">
+          <div class="be num" id="breakeven">—</div>
+          <div class="bm" id="breakevenMove">—</div>
+        </div>
+      </div>
+
+      <div class="card scen">
+        <div class="card-title">Escenarios</div>
+        <div class="card-note">Recalculados con tus números. La fila resaltada es tu tasa futura actual.</div>
+        <table>
+          <thead><tr>
+            <th>Escenario</th>
+            <th>Tasa futura</th>
+            <th id="thRecibe">Recibirías</th>
+            <th class="compare-col">Δ vs fijar hoy</th>
+            <th class="compare-col">Conviene</th>
+          </tr></thead>
+          <tbody id="scenBody"></tbody>
+        </table>
+        <div class="scen-cap" id="scenCap"></div>
+      </div>
+    </div>
+  </div>
+
+  <footer>
+    <div class="credit">Hecho por <b>Walter Leal</b> como ejercicio personal de planeación financiera. Es una herramienta de código abierto para ayudar a pensar una decisión — <b>no es recomendación financiera</b> ni una predicción de tipos de cambio. Úsala bajo tu propio criterio.</div>
+    Supuesto del modelo: el fee de transferencia se paga en ambos casos —tarde o temprano envías el dinero—, así que el costo <em>extra</em> real de fijar la tasa hoy es la comisión por fijación. Si fijar la tasa te obliga a hacer una transferencia adicional (pagar el fee dos veces), la tasa de equilibrio baja un poco más.
+  </footer>
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+const money = new Intl.NumberFormat('es', {maximumFractionDigits:0});
+const USD = new Intl.NumberFormat('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
+function fmtRate(n){
+  const d = Math.abs(n) < 100 ? 2 : 0;
+  return new Intl.NumberFormat('es',{minimumFractionDigits:d, maximumFractionDigits:d}).format(n);
+}
+
+// percentage scenarios relative to today's rate (work for any currency)
+const SCEN = [
+  {name:'Caída fuerte del dólar', move:-0.05},
+  {name:'Caída moderada',          move:-0.03},
+  {name:'Caída leve',              move:-0.01},
+  {name:'Sin cambio',              move: 0.00},
+  {name:'Sube (sorpresa)',         move:+0.03},
+];
+
+function getCurr(){
+  const c = ($('curr').value || '').trim().toUpperCase();
+  return c || 'moneda';
+}
+
+function calc(){
+  const curr     = getCurr();
+  const compare  = $('modeToggle').checked;
+  const monto    = parseFloat($('monto').value)||0;
+  const service  = compare ? (parseFloat($('service').value)||0) : 0;
+  const transfer = compare ? (parseFloat($('transfer').value)||0) : 0;
+  const trmHoy   = parseFloat($('trmHoy').value)||0;
+  const movePct  = parseFloat($('trmFut').value)||0;          // slider = % move vs hoy
+  const trmFut   = trmHoy * (1 + movePct/100);
+
+  // update currency labels
+  document.querySelectorAll('.currLbl').forEach(el=>el.textContent=curr);
+
+  // usable amounts
+  const usableHoy = Math.max(monto - service - transfer, 0); // fijar hoy: pierdes comisión + fee
+  const usableEsp = Math.max(monto - transfer, 0);           // esperar: solo fee
+  const usableSimple = monto;                                // modo simple: sin costos
+
+  const copHoy = usableHoy * trmHoy;
+  const copEsp = usableEsp * trmFut;
+  const copSimple = usableSimple * trmFut;
+  const breakeven = usableEsp>0 ? copHoy/usableEsp : 0;
+  const diff = copEsp - copHoy;                              // >0 → esperar mejor
+  const beMovePct = trmHoy>0 ? (breakeven/trmHoy-1)*100 : 0;
+
+  // --- simple result card ---
+  $('copSimple').innerHTML = money.format(Math.round(copSimple))+' <small>'+curr+'</small>';
+  $('usableSimple').textContent = '$'+USD.format(usableSimple)+' USD';
+  $('atrmSimple').textContent = fmtRate(trmFut)+' '+curr+'/USD';
+
+  // --- compare cards ---
+  $('copHoy').innerHTML = money.format(Math.round(copHoy))+' <small>'+curr+'</small>';
+  $('copEsp').innerHTML = money.format(Math.round(copEsp))+' <small>'+curr+'</small>';
+  $('usableHoy').textContent = '$'+USD.format(usableHoy);
+  $('usableEsp').textContent = '$'+USD.format(usableEsp);
+  $('atrmHoy').textContent = fmtRate(trmHoy);
+  $('atrmEsp').textContent = fmtRate(trmFut);
+
+  const tol = copHoy*0.0015; // empate técnico
+  $('optHoy').classList.toggle('win', diff < -tol);
+  $('optEsp').classList.toggle('win', diff >  tol);
+
+  // --- slider readouts ---
+  $('trmFutVal').textContent = fmtRate(trmFut)+' '+curr;
+  const ml=$('moveLbl');
+  ml.textContent = (movePct>=0?'+':'')+movePct.toFixed(1)+'% vs hoy';
+  ml.style.color = movePct>0?'var(--green)':movePct<0?'var(--amber)':'var(--muted)';
+
+  // --- breakeven ---
+  $('breakeven').textContent = fmtRate(breakeven)+' '+curr;
+  $('breakevenMove').textContent = beMovePct.toFixed(1)+'% desde hoy ('+fmtRate(trmHoy-breakeven)+' de caída)';
+
+  // --- verdict / summary banner ---
+  let label,why,color;
+  if(!compare){
+    color='var(--green)';
+    label='Recibirías '+money.format(Math.round(copSimple))+' '+curr;
+    why='Tu monto de <b>$'+USD.format(monto)+' USD</b> a una tasa de <b>'+fmtRate(trmFut)+' '+curr+'/USD</b> se convierte en <b>'+money.format(Math.round(copSimple))+' '+curr+'</b>. Mueve la tasa esperada para comparar escenarios, o activa la comparación de comisión a la izquierda.';
+  } else if(diff < -tol){
+    color='var(--amber)';
+    label='Fijar hoy rinde más en este escenario';
+    why='A una tasa futura de <b>'+fmtRate(trmFut)+' '+curr+'</b>, fijar hoy te deja <b>'+money.format(Math.round(-diff))+' '+curr+'</b> más. El dólar habría caído lo suficiente (por debajo de ~'+fmtRate(breakeven)+') para compensar la comisión.';
+  } else if(diff > tol){
+    color='var(--green)';
+    label='Esperar rinde más en este escenario';
+    why='A una tasa futura de <b>'+fmtRate(trmFut)+' '+curr+'</b>, esperar te deja <b>'+money.format(Math.round(diff))+' '+curr+'</b> más. El dólar no cae lo suficiente para justificar la comisión de '+USD.format(service)+' USD, y conservas la opción de decidir más tarde.';
+  } else {
+    color='var(--muted)';
+    label='Prácticamente empate';
+    why='A ~'+fmtRate(trmFut)+' '+curr+' las dos opciones quedan casi iguales. La tasa de equilibrio es ~'+fmtRate(breakeven)+'. Si crees que el dólar caerá por debajo, fija hoy; si no, espera y ahórrate la comisión.';
+  }
+  $('verdictDot').style.background=color;
+  $('verdictDot').style.boxShadow='0 0 0 5px '+color.replace(')',',.12)').replace('var(--','rgba(').replace('amber','230,168,92').replace('green','95,208,138').replace('muted','144,154,159');
+  $('verdictLabel').textContent=label;
+  $('verdictLabel').style.color=color;
+  $('verdictWhy').innerHTML=why;
+
+  // --- scenarios table ---
+  $('thRecibe').textContent = compare ? 'Esperar ('+curr+')' : 'Recibirías ('+curr+')';
+  const tb=$('scenBody'); tb.innerHTML='';
+  SCEN.forEach(s=>{
+    const r = trmHoy*(1+s.move);
+    const ce = usableEsp*r;                 // amount if you wait (no commission)
+    const cSimple = usableSimple*r;         // simple-mode amount
+    const shown = compare ? ce : cSimple;
+    const d = ce - copHoy;
+    let verdict,cls;
+    if(d < -tol){verdict='Fijar hoy';cls='h';}
+    else if(d > tol){verdict='Esperar';cls='e';}
+    else{verdict='Empate';cls='t';}
+    const near = Math.abs(s.move*100 - movePct) < 0.6;
+    const tr=document.createElement('tr');
+    if(near) tr.style.background='rgba(255,255,255,.035)';
+    tr.innerHTML =
+      '<td>'+s.name+' <span style="color:var(--faint);font-size:11px">('+(s.move>=0?'+':'')+(s.move*100).toFixed(0)+'%)</span></td>'+
+      '<td>'+fmtRate(r)+'</td>'+
+      '<td>'+money.format(Math.round(shown))+'</td>'+
+      '<td class="compare-col delta '+(d>=0?'pos':'neg')+'">'+(d>=0?'+':'−')+money.format(Math.abs(Math.round(d)))+'</td>'+
+      '<td class="compare-col"><span class="pill '+cls+'">'+verdict+'</span></td>';
+    tb.appendChild(tr);
+  });
+  if(compare){
+    $('scenCap').innerHTML='Lectura: solo cuando el dólar cae <b>más de ~'+Math.abs(beMovePct).toFixed(1)+'%</b> (por debajo de ~'+fmtRate(breakeven)+' '+curr+') fijar la tasa hoy supera a esperar. Una caída leve, o que el dólar se quede igual, favorece esperar.';
+  } else {
+    $('scenCap').innerHTML='Lectura: a mayor tasa '+curr+'/USD, más recibes. Cada fila muestra cuánto obtendrías si el dólar se moviera ese porcentaje frente a hoy.';
+  }
+}
+
+function setMode(){
+  document.body.classList.toggle('mode-compare', $('modeToggle').checked);
+  calc();
+}
+
+['curr','monto','service','transfer','trmHoy','trmFut'].forEach(id=>{
+  $(id).addEventListener('input',calc);
+});
+$('modeToggle').addEventListener('change',setMode);
+setMode();
+</script>
+</body>
+</html>
